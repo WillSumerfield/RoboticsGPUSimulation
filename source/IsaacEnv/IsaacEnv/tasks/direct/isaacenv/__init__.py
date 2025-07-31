@@ -13,7 +13,7 @@ from . import agents
 
 
 gym.register(
-    id="Template-Isaacenv-Direct-v0",
+    id="Grasper-Direct",
     entry_point=f"{__name__}.isaacenv_env:IsaacenvEnv",
     disable_env_checker=True,
     kwargs={
