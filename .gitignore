@@ -37,6 +37,9 @@ docker/.container.cfg
 docker/artifacts/
 *.tmp
 
+# Isaac Lab (upstream repo)
+IsaacLab/
+
 # Doc Outputs
 **/docs/_build/*
 **/generated/*
