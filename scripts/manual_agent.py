@@ -1,6 +1,7 @@
 import argparse
 from isaaclab.app import AppLauncher
 
+
 def main():
     parser = argparse.ArgumentParser(description="Manual agent for Isaac Lab environments.")
     parser.add_argument("--task", type=str, default=None, help="Name of the task.")
@@ -18,9 +19,12 @@ def main():
     from isaaclab_tasks.utils import parse_env_cfg
     import IsaacEnv.tasks  # noqa: F401
 
+
     env_cfg = parse_env_cfg(
         args_cli.task, device=args_cli.device, num_envs=1, use_fabric=not args_cli.disable_fabric
     )
+    env_cfg.robot_cfg.spawn.usd_path = env_cfg.robot_cfg.spawn.usd_path.replace("Grasp3D-temp.usd", "Grasp3D.usd")
+
     env = gym.make(args_cli.task, cfg=env_cfg)
     env.reset()
 
@@ -37,6 +41,7 @@ def main():
     grip_closed = 0.0
 
     action = torch.zeros(env.action_space.shape[1], device=env.unwrapped.device)
+    reward = 0.0
 
     while simulation_app.is_running():
         for event in pygame.event.get():
@@ -74,6 +79,11 @@ def main():
         # Reset actions on reset
         if torch.any(obs[2]) or torch.any(obs[3]):
             action = torch.zeros(env.action_space.shape[1], device=env.unwrapped.device)
+            reward = 0.0
+
+        reward += obs[1].mean().item()
+
+        print(f"Obs: {[round(i, 2) for i in (obs[0]['policy'].tolist()[0])]}", end="\r")
 
         pygame.time.wait(int(1000/60))  # Control loop speed
 

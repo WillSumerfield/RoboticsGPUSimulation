@@ -65,6 +65,8 @@ import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils.hydra import hydra_task_config
 import IsaacEnv.tasks  # noqa: F401
 
+from evolution_common import modify_params_usd
+
 
 NUM_PARAMS = 3
 PARAMETERIZED_PRIM_NAMES = [
@@ -118,43 +120,6 @@ def load_agent_model(log_dir: str, agent_id: int, generation: int):
     return model
 
 
-def modify_params_usd(parameters: tuple):
-    """Modify the USD file with agent parameters."""
-    print(f"[INFO] Setting environment parameters: {parameters}")
-    
-    stage = Usd.Stage.Open("source/IsaacEnv/IsaacEnv/tasks/direct/isaacenv/Grasp3D-v3.usd")
-    prims = [stage.GetPrimAtPath(prim_name) for prim_name in PARAMETERIZED_PRIM_NAMES]
-    
-    # Scale each prim to the new scale factor
-    for param, prim in zip(parameters, prims):
-        if not prim.IsValid():
-            print(f"[WARNING] Prim not found: {prim.GetPath()}")
-            continue
-            
-        prim_xform = UsdGeom.Xformable(prim)
-
-        # Find or create scale operation
-        scale_op = None
-        for op in prim_xform.GetOrderedXformOps():
-            if op.GetOpType() == UsdGeom.XformOp.TypeScale:
-                scale_op = op
-                break
-        if scale_op is None:
-            scale_op = prim_xform.AddScaleOp()
-
-        # Set the length
-        scale = scale_op.Get()
-        scale[2] = param  # Z is the length of the digits
-        scale_op.Set(scale)
-    
-    stage.GetRootLayer().Export("source/IsaacEnv/IsaacEnv/tasks/direct/isaacenv/Grasp3D-temp.usd")
-
-    # Reload the USD file using Omniverse context
-    context = omni.usd.get_context()
-    context.new_stage()
-    context.get_stage().Reload()
-
-
 def create_environment(task_name: str, env_cfg, record=False, video_length=500, num_envs=1):
     """Create and configure the environment."""
     
@@ -192,16 +157,17 @@ def run_agent_episodes(model, env, num_episodes: int):
     
     print(f"[INFO] Running {num_episodes} episodes...")
     
+    obs = env.reset()
     episode_rewards = []
     episode_lengths = []
-    
     for episode in range(num_episodes):
         print(f"[INFO] Running episode {episode + 1}/{num_episodes}")
         
-        obs = env.reset()
         episode_length = 0
-        
-        while not episode_length >= env.unwrapped.max_episode_length:
+        episode_reward = 0.0
+        done = False
+
+        while not done:
             # Get action from the trained model
             action, _ = model.predict(obs, deterministic=True)
             
@@ -209,19 +175,23 @@ def run_agent_episodes(model, env, num_episodes: int):
             obs, reward, done, info = env.step(action)
             
             episode_length += 1
+            episode_reward += reward.mean().item()
             
             # Add small delay for better visualization (if not headless)
             if not args_cli.headless:
                 time.sleep(0.01)
-        
+
+        episode_rewards.append(episode_reward)
         episode_lengths.append(episode_length)
         
-        print(f"  Episode {episode + 1}: Length = {episode_length}")
+        print(f"  Episode {episode + 1}: Length = {episode_length}, Reward = {episode_reward:.3f}")
     
     avg_length = np.mean(episode_lengths)
+    avg_reward = np.mean(episode_rewards)
     
     print(f"\n[RESULTS] Episode Summary:")
     print(f"  Average Length: {avg_length:.1f}")
+    print(f"  Average Reward: {avg_reward:.3f}")
     print(f"  Total Episodes: {num_episodes}")
 
 
@@ -233,19 +203,17 @@ def main(env_cfg, agent_cfg):
     print(f"  Log Directory: {args_cli.log_dir}")
     print(f"  Agent ID: {args_cli.agent_id}")
     print(f"  Generation: {args_cli.generation}")
+
+    task_folder = args_cli.task.replace("-", "_").lower()
     
     # Load agent data from evolution results
     agent_data, config = load_agent_data(args_cli.log_dir, args_cli.agent_id)
-    
-    # Validate generation
-    if args_cli.generation > len(agent_data['fitness_history']):
-        raise ValueError(f"Generation {args_cli.generation} not found. Agent trained for {len(agent_data['fitness_history'])} generations.")
     
     # Load the trained model
     model = load_agent_model(args_cli.log_dir, args_cli.agent_id, args_cli.generation)
     
     # Set environment parameters
-    modify_params_usd(agent_data['params'])
+    modify_params_usd(task_folder, agent_data['params'])
     
     # Create environment
     print(f"[INFO] Creating environment...")

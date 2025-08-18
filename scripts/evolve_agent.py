@@ -480,7 +480,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
 
 def scale_objects(scale_factor):
-    stage = Usd.Stage.Open("source/IsaacEnv/IsaacEnv/tasks/direct/isaacenv/Grasp3D-v3.usd")
+    stage = Usd.Stage.Open("source/IsaacEnv/IsaacEnv/tasks/direct/grasp_object/Grasp3D-v3.usd")
     prim = stage.GetPrimAtPath("/World/Object")
     xform = UsdGeom.Xformable(prim)
     scale_op = None
@@ -489,7 +489,7 @@ def scale_objects(scale_factor):
             scale_op = op
             break
     scale_op.Set(Gf.Vec3f(*scale_factor))
-    stage.GetRootLayer().Export("source/IsaacEnv/IsaacEnv/tasks/direct/isaacenv/Grasp3D-temp.usd")
+    stage.GetRootLayer().Export("source/IsaacEnv/IsaacEnv/tasks/direct/grasp_object/Grasp3D-temp.usd")
 
     # Reload the USD file using Omniverse context
     context = omni.usd.get_context()

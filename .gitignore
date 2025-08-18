@@ -36,6 +36,9 @@ docker/.container.cfg
 **/.neptune/*
 docker/artifacts/
 *.tmp
+diagrams/
+outputs/
+.vscode/
 
 # Isaac Lab (upstream repo)
 IsaacLab/

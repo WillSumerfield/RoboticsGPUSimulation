@@ -13,11 +13,11 @@ from . import agents
 
 
 gym.register(
-    id="Grasper-Direct",
-    entry_point=f"{__name__}.isaacenv_env:IsaacenvEnv",
+    id="Grasp-Pot",
+    entry_point=f"{__name__}.grasp_pot:GraspPotEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.isaacenv_env_cfg:IsaacenvEnvCfg",
+        "env_cfg_entry_point": f"{__name__}.grasp_pot_cfg:GraspPotEnvCfg",
         "sb3_cfg_entry_point": f"{agents.__name__}:sb3_ppo_cfg.yaml",
     },
 )
