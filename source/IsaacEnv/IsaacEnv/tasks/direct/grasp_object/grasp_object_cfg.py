@@ -78,8 +78,8 @@ class GraspObjectEnvCfg(DirectRLEnvCfg):
     normalize_input = True
     # - spaces definition
     action_space = 4
-    observation_space = 12
-    state_space = 12
+    observation_space = 14
+    state_space = 14
 
     # simulation
     sim: SimulationCfg = SimulationCfg(dt=1/60, render_interval=decimation)

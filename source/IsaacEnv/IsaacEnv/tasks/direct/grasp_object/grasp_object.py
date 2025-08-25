@@ -168,9 +168,9 @@ class GraspObjectEnv(DirectRLEnv):
         object_root_state[:, :3] += self.scene.env_origins[env_ids]
 
         # Randomize object orientation for domain randomization
-        # random_z_rot = torch.rand((len(env_ids), 1), device=object_root_state.device)
-        # quat_w = torch.sqrt(1 - random_z_rot**2)
-        # object_root_state[:, 3:7] = torch.cat((quat_w, torch.zeros((len(env_ids), 2), device=object_root_state.device), random_z_rot), dim=1)
+        random_z_rot = torch.rand((len(env_ids), 1), device=object_root_state.device)
+        quat_w = torch.sqrt(1 - random_z_rot**2)
+        object_root_state[:, 3:7] = torch.cat((quat_w, torch.zeros((len(env_ids), 2), device=object_root_state.device), random_z_rot), dim=1)
 
         # Write states to simulation - this will update the robot's internal data automatically
         self.robot.set_joint_position_target(torch.zeros(joint_pos.shape, device=joint_pos.device), env_ids=env_ids)
@@ -208,8 +208,8 @@ def compute_observations(
             contact_left > 0,
             contact_right > 0,
             contact_back > 0,
-            #(~wind_time).unsqueeze(dim=1), # Manually do one hot observations for wind time
-            #wind_time.unsqueeze(dim=1),
+            (~wind_time).unsqueeze(dim=1), # Manually do one hot observations for wind time
+            wind_time.unsqueeze(dim=1),
         ),
         dim=-1,
     )
@@ -229,16 +229,22 @@ def compute_rewards(
     held_position: torch.Tensor,
     terminated: torch.Tensor,
 ) -> torch.Tensor:
+    # obj_lifted = object_pos[:, 2] > 1
+    # object_dist = torch.norm(hand_pos - object_pos, p=2, dim=-1)/torch.sqrt(300)
+    # sum_contact = contact_left.float() + contact_right.float() + contact_back.float()
+    # contact = sum_contact > 0.0
+    # double_contact = sum_contact > 1.0
+    # reward_initial = (1-object_dist)**rew_scale_distance + (obj_lifted.float()*double_contact.float())*rew_scale_lifted + contact.float()
+    # reward_wind = -10*(torch.norm(held_position - object_pos, p=2, dim=-1)/torch.sqrt(300)) + -50*terminated.float()
+    # reward = reward_initial#reward_initial*((~wind_time).float()) + reward_wind*(wind_time.float())
+    # return reward
     obj_lifted = object_pos[:, 2] > 1
     object_dist = torch.norm(hand_pos - object_pos, p=2, dim=-1)/torch.sqrt(300)
     sum_contact = contact_left.float() + contact_right.float() + contact_back.float()
     contact = sum_contact > 0.0
     double_contact = sum_contact > 1.0
-    reward_initial = (1-object_dist)**rew_scale_distance + (obj_lifted.float()*double_contact.float())*rew_scale_lifted + contact.float()/3
-    reward_wind = -10*(torch.norm(held_position - object_pos, p=2, dim=-1)/torch.sqrt(300)) + -50*terminated.float()
-    reward = reward_initial*((~wind_time).float()) + reward_wind*(wind_time.float())
+    reward = (1-object_dist)**rew_scale_distance + (obj_lifted.float()*double_contact.float())*rew_scale_lifted + contact.float()
     return reward
-
 
 @torch.jit.script
 def compute_boundaries(
