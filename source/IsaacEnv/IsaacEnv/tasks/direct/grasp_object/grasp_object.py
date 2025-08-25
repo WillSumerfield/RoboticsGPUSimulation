@@ -209,7 +209,7 @@ def compute_observations(
             contact_right > 0,
             contact_back > 0,
             #(~wind_time).unsqueeze(dim=1), # Manually do one hot observations for wind time
-            wind_time.unsqueeze(dim=1),
+            #wind_time.unsqueeze(dim=1),
         ),
         dim=-1,
     )

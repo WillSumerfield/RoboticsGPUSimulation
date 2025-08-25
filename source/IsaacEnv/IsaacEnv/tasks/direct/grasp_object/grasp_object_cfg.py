@@ -36,7 +36,7 @@ HAND_CFG = ArticulationCfg(
         activate_contact_sensors=True,
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 3.0), joint_pos={"joint_right": -0.7853981633974483, "joint_left": -0.7853981633974483, "joint_back": -0.7853981633974483,
+        pos=(0.0, 0.0, 3.0), joint_pos={"joint_right": 0, "joint_left": 0, "joint_back": 0,
                                         "joint_slide_x": 0.0, "joint_slide_y": 0.0, "joint_slide_z": 2.0}
     ),
     actuators={
@@ -78,8 +78,8 @@ class GraspObjectEnvCfg(DirectRLEnvCfg):
     normalize_input = True
     # - spaces definition
     action_space = 4
-    observation_space = 13
-    state_space = 13
+    observation_space = 12
+    state_space = 12
 
     # simulation
     sim: SimulationCfg = SimulationCfg(dt=1/60, render_interval=decimation)
@@ -118,5 +118,5 @@ class GraspObjectEnvCfg(DirectRLEnvCfg):
     rew_scale_lifted = 5.0
     rew_scale_terminated = 0.0
     # - reset states/conditions
-    initial_hand_position_range_horizontal = [-0, 0]#[-1.5, 1.5] # [m]
+    initial_hand_position_range_horizontal = [-1.5, 1.5] # [m]
     wind_time = 120
