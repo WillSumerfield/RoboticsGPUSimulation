@@ -118,5 +118,5 @@ class GraspObjectEnvCfg(DirectRLEnvCfg):
     rew_scale_lifted = 5.0
     rew_scale_terminated = 0.0
     # - reset states/conditions
-    initial_hand_position_range_horizontal = [-1.5, 1.5] # [m]
+    initial_hand_position_range_horizontal = [-0, 0]#[-1.5, 1.5] # [m]
     wind_time = 120

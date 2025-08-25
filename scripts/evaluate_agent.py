@@ -88,7 +88,12 @@ def main(env_cfg, agent_cfg):
     env_cfg.scene.num_envs = getattr(args, 'num_envs', env_cfg.scene.num_envs)
 
     if args.agent_type == 'sb3':
-        model_path = f"logs/sb3/{args.task}/{args.train_date}/model"
+        log_dir = os.path.abspath(os.path.join("logs", "sb3", args.task))
+        # Use the provided train date or default to latest
+        train_date = args.train_date
+        if not args.train_date:
+            train_date = sorted(os.listdir(log_dir))[-1]
+        model_path = f"logs/sb3/{args.task}/{train_date}/model"
         # Patch USD path for SB3 agent
         env_cfg = patch_usd_path_in_cfg(env_cfg, new_usd_name="Grasp3D.usd")
         # Post-process agent config
@@ -100,12 +105,18 @@ def main(env_cfg, agent_cfg):
         env = Sb3VecEnvWrapper(env)
         # Load model
         model = PPO.load(model_path, env=env)
+        print(f"Running evaluation for {args.task} - {train_date}")
         avg_reward, std_reward = evaluate_policy(model, env, args.episodes)
         env.close()
 
     else:
+        log_dir = os.path.abspath(os.path.join("logs", "sb3", "population_evolution", args.task.replace('-', '_').lower()))
+        # Use the provided train date or default to latest
+        train_date = args.train_date
+        if not args.train_date:
+            train_date = sorted(os.listdir(log_dir))[-1]
         # Find the results directory
-        pop_dir = f"logs/sb3/population_evolution/{args.task.replace('-', '_').lower()}/{args.train_date}"
+        pop_dir = f"logs/sb3/population_evolution/{args.task.replace('-', '_').lower()}/{train_date}"
         model_path = pop_dir + f"/gen_{args.generation}/agent_{args.agent_id}/agent_{args.agent_id}_gen_{args.generation}.zip"
         agent_info_path = pop_dir + f"/population_results.yaml"
 
@@ -119,6 +130,7 @@ def main(env_cfg, agent_cfg):
             if str(agent['id']) == args.agent_id:
                 agent_data = agent
                 break
+        print(f"Running evaluation for {args.task} - {train_date}: agent {agent_data['id']}, generation {args.generation}")
         avg_reward, std_reward = evaluate_evolution_agent(agent_data, env_cfg, model_path, args.task, args.episodes)
 
     print(f"Average reward over {args.episodes} episodes: {avg_reward:.3f} ± {std_reward:.3f}")

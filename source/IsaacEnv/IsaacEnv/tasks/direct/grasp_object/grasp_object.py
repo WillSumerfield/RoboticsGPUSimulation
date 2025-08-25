@@ -75,7 +75,7 @@ class GraspObjectEnv(DirectRLEnv):
         self.actions = actions.clone()
 
         # Enable wind forces if the wind time is reached
-        new_wind_time = self.episode_length_buf > self.cfg.wind_time
+        new_wind_time = self.episode_length_buf > 100000 #self.episode_length_buf > self.cfg.wind_time
         env_ids = self.wind_time.nonzero(as_tuple=False).squeeze(-1)
         new_env_ids = (~self.wind_time & new_wind_time).nonzero(as_tuple=False).squeeze(-1)
         self.wind_time = new_wind_time
@@ -145,6 +145,7 @@ class GraspObjectEnv(DirectRLEnv):
         # Determine a random wind direction
         self.wind_direction[env_ids] = sample_uniform(-1.0, 1.0, (len(env_ids), 3), device=self.device)
         self.held_position[env_ids] = torch.zeros((len(env_ids), 3), device=self.device)
+        self.wind_time[env_ids] = torch.zeros((len(env_ids),), dtype=torch.bool, device=self.device)
 
         joint_pos = self.robot.data.default_joint_pos[env_ids]
         joint_pos[:, self._planar_x_dof_idx] += sample_uniform(
@@ -167,9 +168,9 @@ class GraspObjectEnv(DirectRLEnv):
         object_root_state[:, :3] += self.scene.env_origins[env_ids]
 
         # Randomize object orientation for domain randomization
-        random_z_rot = torch.rand((len(env_ids), 1), device=object_root_state.device)
-        quat_w = torch.sqrt(1 - random_z_rot**2)
-        object_root_state[:, 3:7] = torch.cat((quat_w, torch.zeros((len(env_ids), 2), device=object_root_state.device), random_z_rot), dim=1)
+        # random_z_rot = torch.rand((len(env_ids), 1), device=object_root_state.device)
+        # quat_w = torch.sqrt(1 - random_z_rot**2)
+        # object_root_state[:, 3:7] = torch.cat((quat_w, torch.zeros((len(env_ids), 2), device=object_root_state.device), random_z_rot), dim=1)
 
         # Write states to simulation - this will update the robot's internal data automatically
         self.robot.set_joint_position_target(torch.zeros(joint_pos.shape, device=joint_pos.device), env_ids=env_ids)
@@ -207,6 +208,7 @@ def compute_observations(
             contact_left > 0,
             contact_right > 0,
             contact_back > 0,
+            #(~wind_time).unsqueeze(dim=1), # Manually do one hot observations for wind time
             wind_time.unsqueeze(dim=1),
         ),
         dim=-1,
@@ -232,8 +234,8 @@ def compute_rewards(
     sum_contact = contact_left.float() + contact_right.float() + contact_back.float()
     contact = sum_contact > 0.0
     double_contact = sum_contact > 1.0
-    reward_initial = (1-object_dist)**rew_scale_distance + (obj_lifted.float()*double_contact.float())*rew_scale_lifted + contact.float()
-    reward_wind = -0.25*(torch.norm(held_position - object_pos, p=2, dim=-1)/torch.sqrt(300)) + -20*terminated.float()
+    reward_initial = (1-object_dist)**rew_scale_distance + (obj_lifted.float()*double_contact.float())*rew_scale_lifted + contact.float()/3
+    reward_wind = -10*(torch.norm(held_position - object_pos, p=2, dim=-1)/torch.sqrt(300)) + -50*terminated.float()
     reward = reward_initial*((~wind_time).float()) + reward_wind*(wind_time.float())
     return reward
 

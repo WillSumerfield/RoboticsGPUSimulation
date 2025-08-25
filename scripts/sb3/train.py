@@ -26,6 +26,7 @@ parser.add_argument("--num_envs", type=int, default=None, help="Number of enviro
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
+parser.add_argument("--eval_frequency", type=int, default=5e5, help="Frequency of evaluations during training (in steps).")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -72,6 +73,20 @@ from isaaclab_tasks.utils.hydra import hydra_task_config
 import IsaacEnv.tasks  # noqa: F401
 
 
+def evaluate(agent, env, num_episodes, steps):
+    """Evaluate the agent for num_episodes and return average reward."""
+    rewards = np.zeros((num_episodes, env.num_envs))
+    for ep in range(num_episodes):
+        obs = env.reset()
+        done_indices = np.zeros(env.num_envs, dtype=np.bool_)
+        while not done_indices.all():
+            action, _ = agent.predict(obs, deterministic=True)
+            obs, reward, done, info = env.step(action)
+            rewards[ep, ~done_indices] += reward[~done_indices]
+            done_indices = done_indices | done
+    print(f"Eval at step {steps} - Reward: {rewards.mean():.3f} +/- {rewards.std():.3f}")
+    return rewards.mean()
+
 @hydra_task_config(args_cli.task, "sb3_cfg_entry_point")
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: dict):
     """Train with stable-baselines agent."""
@@ -94,15 +109,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # directory for logging into
     run_info = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_root_path = os.path.abspath(os.path.join("logs", "sb3", args_cli.task))
-    print(f"[INFO] Logging experiment in directory: {log_root_path}")
-    # The Ray Tune workflow extracts experiment name using the logging line below, hence, do not change it (see PR #2346, comment-2819298849)
-    print(f"Exact experiment name requested from command line: {run_info}")
     log_dir = os.path.join(log_root_path, run_info)
-    # dump the configuration into log-directory
-    dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
-    dump_yaml(os.path.join(log_dir, "params", "agent.yaml"), agent_cfg)
-    dump_pickle(os.path.join(log_dir, "params", "env.pkl"), env_cfg)
-    dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), agent_cfg)
+    print(f"[INFO] Logging experiment in directory: {log_root_path}")
+
+    # Make a simple log to capture the performance over time
+    perf_history = {}
 
     # post-process agent configuration
     agent_cfg = process_sb3_cfg(agent_cfg)
@@ -149,12 +160,23 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     new_logger = configure(log_dir, ["stdout", "tensorboard"])
     agent.set_logger(new_logger)
 
-    # callbacks for agent
-    checkpoint_callback = CheckpointCallback(save_freq=500, save_path=log_dir, name_prefix="model", verbose=2)
-    # train the agent
-    agent.learn(total_timesteps=n_timesteps, callback=checkpoint_callback)
-    # save the final model
-    agent.save(os.path.join(log_dir, "model"))
+    top_performance = -np.inf
+    steps = 0
+    while steps < n_timesteps:
+        # train the agent
+        agent.learn(total_timesteps=args_cli.eval_frequency)
+        steps += args_cli.eval_frequency
+        # evaluate the agent
+        performance = evaluate(agent, env, 1, steps)
+        if performance > top_performance:
+            top_performance = performance
+            agent.save(os.path.join(log_dir, "model"))
+
+        # log performance
+        perf_history[steps] = performance
+
+    # save performance history
+    dump_yaml(os.path.join(log_dir, "perf_history.yaml"), perf_history)
 
     # close the simulator
     env.close()

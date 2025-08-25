@@ -1,5 +1,6 @@
 import argparse
 from isaaclab.app import AppLauncher
+import numpy as np
 
 
 def main():
@@ -42,6 +43,7 @@ def main():
 
     action = torch.zeros(env.action_space.shape[1], device=env.unwrapped.device)
     reward = 0.0
+    peak_reward = -np.inf
 
     while simulation_app.is_running():
         for event in pygame.event.get():
@@ -62,9 +64,9 @@ def main():
         if keys[pygame.K_s]:
             action[1] -= move_step  # X- (backward)
         if keys[pygame.K_a]:
-            action[2] -= move_step  # Y- (left)
+            action[2] += move_step  # Y- (left)
         if keys[pygame.K_d]:
-            action[2] += move_step  # Y+ (right)
+            action[2] -= move_step  # Y+ (right)
 
         # Y axis (up/down) can be mapped to other keys if needed
         if keys[pygame.K_q]:
@@ -79,11 +81,15 @@ def main():
         # Reset actions on reset
         if torch.any(obs[2]) or torch.any(obs[3]):
             action = torch.zeros(env.action_space.shape[1], device=env.unwrapped.device)
+            print(f"Final Reward: {reward:.3f}, Peak Reward: {peak_reward:.3f}")
             reward = 0.0
+            peak_reward = -np.inf
 
         reward += obs[1].mean().item()
+        peak_reward = max(peak_reward, reward)
 
-        print(f"Obs: {[round(i, 2) for i in (obs[0]['policy'].tolist()[0])]}", end="\r")
+        #print(f"Obs: {[round(i, 2) for i in (obs[0]['policy'].tolist()[0])]}", end="\r")
+        print(f"Reward: {reward:.3f}" + " "*20, end="\r")
 
         pygame.time.wait(int(1000/60))  # Control loop speed
 
