@@ -51,8 +51,8 @@ HAND_CFG = ArticulationCfg(
             joint_names_expr=["joint_left", "joint_right", "joint_back"], 
             effort_limit_sim=400.0,
             velocity_limit_sim=50.0, 
-            stiffness=20.0, 
-            damping=1.0
+            stiffness=200.0, 
+            damping=10.0
         ),
     },
 )

@@ -79,7 +79,7 @@ class GraspObjectEnv(DirectRLEnv):
         env_ids = self.wind_time.nonzero(as_tuple=False).squeeze(-1)
         new_env_ids = (~self.wind_time & new_wind_time).nonzero(as_tuple=False).squeeze(-1)
         self.wind_time = new_wind_time
-        forces = self.wind_direction[env_ids]*300
+        forces = self.wind_direction[env_ids]*500
         torques = torch.zeros(len(env_ids), 1, 3, device=self.device)
         world_forces = world_forces_to_local(forces, self.object.data.body_quat_w[env_ids, 0, :]).unsqueeze(1)
         self.object.set_external_force_and_torque(world_forces, torques, env_ids=env_ids)
