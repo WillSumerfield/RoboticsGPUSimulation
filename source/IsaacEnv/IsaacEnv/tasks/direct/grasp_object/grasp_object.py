@@ -75,7 +75,7 @@ class GraspObjectEnv(DirectRLEnv):
         self.actions = actions.clone()
 
         # Enable wind forces if the wind time is reached
-        new_wind_time = self.episode_length_buf > 100000 #self.episode_length_buf > self.cfg.wind_time
+        new_wind_time = self.episode_length_buf > self.cfg.wind_time
         env_ids = self.wind_time.nonzero(as_tuple=False).squeeze(-1)
         new_env_ids = (~self.wind_time & new_wind_time).nonzero(as_tuple=False).squeeze(-1)
         self.wind_time = new_wind_time
@@ -229,21 +229,14 @@ def compute_rewards(
     held_position: torch.Tensor,
     terminated: torch.Tensor,
 ) -> torch.Tensor:
-    # obj_lifted = object_pos[:, 2] > 1
-    # object_dist = torch.norm(hand_pos - object_pos, p=2, dim=-1)/torch.sqrt(300)
-    # sum_contact = contact_left.float() + contact_right.float() + contact_back.float()
-    # contact = sum_contact > 0.0
-    # double_contact = sum_contact > 1.0
-    # reward_initial = (1-object_dist)**rew_scale_distance + (obj_lifted.float()*double_contact.float())*rew_scale_lifted + contact.float()
-    # reward_wind = -10*(torch.norm(held_position - object_pos, p=2, dim=-1)/torch.sqrt(300)) + -50*terminated.float()
-    # reward = reward_initial#reward_initial*((~wind_time).float()) + reward_wind*(wind_time.float())
-    # return reward
     obj_lifted = object_pos[:, 2] > 1
     object_dist = torch.norm(hand_pos - object_pos, p=2, dim=-1)/torch.sqrt(300)
     sum_contact = contact_left.float() + contact_right.float() + contact_back.float()
     contact = sum_contact > 0.0
     double_contact = sum_contact > 1.0
-    reward = (1-object_dist)**rew_scale_distance + (obj_lifted.float()*double_contact.float())*rew_scale_lifted + contact.float()
+    reward_initial = (1-object_dist)**rew_scale_distance + (obj_lifted.float()*double_contact.float())*rew_scale_lifted + contact.float()
+    reward_wind = -10*(torch.norm(held_position - object_pos, p=2, dim=-1)/torch.sqrt(300)) + -50*terminated.float()
+    reward = reward_initial#reward_initial*((~wind_time).float()) + reward_wind*(wind_time.float())
     return reward
 
 @torch.jit.script
