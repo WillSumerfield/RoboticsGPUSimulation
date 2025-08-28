@@ -85,7 +85,7 @@ def evaluate(agent, env, num_episodes, steps):
             rewards[ep, ~done_indices] += reward[~done_indices]
             done_indices = done_indices | done
     print(f"Eval at step {steps} - Reward: {rewards.mean():.3f} +/- {rewards.std():.3f}")
-    return rewards.mean()
+    return float(rewards.mean())
 
 @hydra_task_config(args_cli.task, "sb3_cfg_entry_point")
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: dict):
