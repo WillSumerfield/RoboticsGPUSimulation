@@ -109,21 +109,18 @@ class Agent:
         if self.model is None:
             return 0.0
         
-        total_reward = 0.0
-        for _ in range(num_episodes):
+        rewards = np.zeros((num_episodes, env.num_envs))
+        for ep in range(num_episodes):
             obs = env.reset()
-            done_count = 0
-            episode_reward = 0.0
-            
-            while done_count < env.num_envs * num_episodes:
+            done_indices = np.zeros(env.num_envs, dtype=np.bool_)
+
+            while not done_indices.all():
                 action, _ = self.model.predict(obs, deterministic=True)
                 obs, reward, done, _ = env.step(action)
-                episode_reward += reward.mean() if hasattr(reward, 'mean') else reward
-                done_count += done.sum().item()
-            
-            total_reward += episode_reward
+                rewards[ep, ~done_indices] += reward[~done_indices]
+                done_indices |= done
         
-        fitness = total_reward / num_episodes
+        fitness = rewards.mean()
         self.fitness_history[generation] = fitness
         return fitness
     

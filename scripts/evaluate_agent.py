@@ -49,16 +49,19 @@ def patch_usd_path_in_cfg(env_cfg, new_usd_name="Grasp3D.usd"):
 
 def evaluate_policy(agent, env, num_episodes):
     """Evaluate the agent for num_episodes and return average reward."""
+
     rewards = np.zeros((num_episodes, env.num_envs))
     for ep in range(num_episodes):
         obs = env.reset()
         done_indices = np.zeros(env.num_envs, dtype=np.bool_)
+
         while not done_indices.all():
             action, _ = agent.predict(obs, deterministic=True)
-            obs, reward, done, info = env.step(action)
+            obs, reward, done, _ = env.step(action)
             rewards[ep, ~done_indices] += reward[~done_indices]
-            done_indices = done_indices | done
+            done_indices |= done
         print(f"Episode {ep + 1}/{num_episodes} complete - {rewards[ep].mean():.3f} reward, {rewards[ep].std():.3f} std")
+
     return np.mean(rewards), np.std(rewards)
 
 
@@ -86,6 +89,7 @@ def main(env_cfg, agent_cfg):
 
     # Set up environment config
     env_cfg.scene.num_envs = getattr(args, 'num_envs', env_cfg.scene.num_envs)
+    env_cfg.seed = 200
 
     if args.agent_type == 'sb3':
         log_dir = os.path.abspath(os.path.join("logs", "sb3", args.task))
@@ -117,7 +121,7 @@ def main(env_cfg, agent_cfg):
             train_date = sorted(os.listdir(log_dir))[-1]
         # Find the results directory
         pop_dir = f"logs/sb3/population_evolution/{args.task.replace('-', '_').lower()}/{train_date}"
-        model_path = pop_dir + f"/gen_{args.generation}/agent_{args.agent_id}/agent_{args.agent_id}_gen_{args.generation}.zip"
+        model_path = pop_dir + f"/gen_{args.generation}/agent_{args.agent_id}/agent_{args.agent_id}_gen_{args.generation}"
         agent_info_path = pop_dir + f"/population_results.yaml"
 
         # Load agent info from YAML
