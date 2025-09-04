@@ -87,7 +87,7 @@ class GraspPotEnvCfg(DirectRLEnvCfg):
     episode_length_s = 5.0
     normalize_input = True
     # - spaces definition
-    action_space = 4
+    action_space = 2
     observation_space = 12
     state_space = 12
 
@@ -130,5 +130,3 @@ class GraspPotEnvCfg(DirectRLEnvCfg):
     rew_scale_distance = 1.0
     rew_scale_lifted = 5.0
     rew_scale_terminated = 0.0
-    # - reset states/conditions
-    initial_hand_position_range_horizontal = [-1.5, 1.5] # [m]

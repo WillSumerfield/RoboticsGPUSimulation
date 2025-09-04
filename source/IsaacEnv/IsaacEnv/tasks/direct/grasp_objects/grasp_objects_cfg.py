@@ -80,7 +80,7 @@ class GraspObjectsEnvCfg(DirectRLEnvCfg):
     episode_length_s = 5.0
     normalize_input = True
     # - spaces definition
-    action_space = 4
+    action_space = 2
     observation_space = 15
     state_space = 15
 

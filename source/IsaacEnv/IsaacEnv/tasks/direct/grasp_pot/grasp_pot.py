@@ -79,9 +79,7 @@ class GraspPotEnv(DirectRLEnv):
         self.robot.set_joint_position_target(self.actions[:, 0]*-self.cfg.action_scale_digits, joint_ids=self._left_finger_dof_idx)
         self.robot.set_joint_position_target(self.actions[:, 0]*-self.cfg.action_scale_digits, joint_ids=self._right_finger_dof_idx)
         self.robot.set_joint_position_target(self.actions[:, 0]*-self.cfg.action_scale_digits, joint_ids=self._back_finger_dof_idx)
-        self.robot.set_joint_position_target(self.actions[:, 1]*self.cfg.action_scale_horizontal, joint_ids=self._planar_x_dof_idx)
-        self.robot.set_joint_position_target(self.actions[:, 2]*self.cfg.action_scale_horizontal, joint_ids=self._planar_y_dof_idx)
-        self.robot.set_joint_position_target(self.actions[:, 3]*self.cfg.action_scale_vertical, joint_ids=self._planar_z_dof_idx)
+        self.robot.set_joint_position_target(self.actions[:, 1]*self.cfg.action_scale_horizontal, joint_ids=self._planar_z_dof_idx)
 
     def _get_observations(self) -> dict:
         obs = compute_observations(
@@ -126,18 +124,6 @@ class GraspPotEnv(DirectRLEnv):
         super()._reset_idx(env_ids)
 
         joint_pos = self.robot.data.default_joint_pos[env_ids]
-        joint_pos[:, self._planar_x_dof_idx] += sample_uniform(
-            self.cfg.initial_hand_position_range_horizontal[0],
-            self.cfg.initial_hand_position_range_horizontal[1],
-            joint_pos[:, self._planar_x_dof_idx].shape,
-            joint_pos.device,
-        )
-        joint_pos[:, self._planar_y_dof_idx] += sample_uniform(
-            self.cfg.initial_hand_position_range_horizontal[0],
-            self.cfg.initial_hand_position_range_horizontal[1],
-            joint_pos[:, self._planar_y_dof_idx].shape, 
-            joint_pos.device,
-        )
         joint_vel = self.robot.data.default_joint_vel[env_ids]
 
         robot_root_state = self.robot.data.default_root_state[env_ids]
