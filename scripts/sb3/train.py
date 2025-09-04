@@ -25,7 +25,7 @@ parser.add_argument("--video_interval", type=int, default=2000, help="Interval b
 parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
-parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
+parser.add_argument("--max_steps", type=int, default=None, help="Max RL Policy training steps.")
 parser.add_argument("--eval_frequency", type=int, default=5e5, help="Frequency of evaluations during training (in steps).")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -97,9 +97,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # override configurations with non-hydra CLI arguments
     env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
     agent_cfg["seed"] = args_cli.seed if args_cli.seed is not None else agent_cfg["seed"]
+
     # max iterations for training
-    if args_cli.max_iterations is not None:
-        agent_cfg["n_timesteps"] = args_cli.max_iterations * agent_cfg["n_steps"] * env_cfg.scene.num_envs
+    if args_cli.max_steps is not None:
+        agent_cfg["n_timesteps"] = args_cli.max_steps
 
     # set the environment seed
     # note: certain randomizations occur in the environment initialization so we set the seed here
@@ -163,9 +164,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     top_performance = -np.inf
     steps = 0
     while steps < n_timesteps:
+
         # train the agent
         agent.learn(total_timesteps=args_cli.eval_frequency)
         steps += args_cli.eval_frequency
+
         # evaluate the agent
         performance = evaluate(agent, env, 1, steps)
         if performance > top_performance:
