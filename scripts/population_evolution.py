@@ -9,14 +9,12 @@ import argparse
 import sys
 import os
 import gc
-import math
 import numpy as np
 from datetime import datetime
 import subprocess
 import logging
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
 np.set_printoptions(precision=2, suppress=True)
 
 from isaaclab.app import AppLauncher
@@ -29,10 +27,11 @@ parser.add_argument("--task", type=str, default="Grasp-Object", help="Name of th
 parser.add_argument("--seed", type=int, default=42, help="Seed used for the environment")
 parser.add_argument("--population_size", type=int, default=8, help="Number of agents in the population.")
 parser.add_argument("--generations", type=int, default=10, help="Number of generations to evolve.")
-parser.add_argument("--timesteps_per_agent", type=int, default=1e5, help="Training timesteps per agent per generation.")
+parser.add_argument("--timesteps_per_agent", type=int, default=2.6e5, help="Training timesteps per agent per generation.")
 parser.add_argument("--mutation_rate", type=float, default=0.5, help="Fraction of population to mutate each generation.")
 parser.add_argument("--mutation_strength", type=float, default=0.1, help="Standard deviation of gaussian mutation noise.")
 parser.add_argument("--selection_randomness", type=float, default=0.2, help="Amount of randomness in selection (0=pure elitism, 1=random).")
+parser.add_argument("--disable_param_randomization", action="store_true", help="Disable initial randomization of parameters.")
 
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -55,13 +54,11 @@ import omni.timeline
 import omni.usd
 from pxr import Usd, UsdGeom, Gf
 
-from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.logger import configure
 
 from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent
 from isaaclab.utils.io import dump_yaml
-import isaacsim.core.utils.prims as prim_utils
 
 from isaaclab_rl.sb3 import Sb3VecEnvWrapper, process_sb3_cfg
 import isaaclab_tasks  # noqa: F401
@@ -467,25 +464,47 @@ def main(env_cfg, agent_cfg):
     total_ancestry = []
     population = []
     evolution_logger.log("Creating initial population:")
-    for i in range(args_cli.population_size):
-        # Generate random parameters
-        mean_length = (Agent.MIN_SCALE_LENGTH + Agent.MAX_SCALE_LENGTH) / 2
-        std_dev_length = (Agent.MAX_SCALE_LENGTH - Agent.MIN_SCALE_LENGTH) / 6  # 99.7% within 3 std deviations
-        mean_width = (Agent.MIN_SCALE_WIDTH + Agent.MAX_SCALE_WIDTH) / 2
-        std_dev_width = (Agent.MAX_SCALE_WIDTH - Agent.MIN_SCALE_WIDTH) / 6  # 99.7% within 3 std deviations
 
-        rotations = np.linspace(0, 2*np.pi, num=Agent.NUM_PARAMS, endpoint=False)
+    if args_cli.disable_param_randomization:
+        evolution_logger.log("  Initial parameter randomization disabled; using default parameters for all agents.")
+        for i in range(args_cli.population_size):
+            # Default parameters (e.g., classic claw gripper)
+            default_length = (Agent.MIN_SCALE_LENGTH + Agent.MAX_SCALE_LENGTH) / 2
+            default_width = (Agent.MIN_SCALE_WIDTH + Agent.MAX_SCALE_WIDTH) / 2
+            rotations = np.linspace(0, 2*np.pi, num=Agent.NUM_PARAMS, endpoint=False)
 
-        params = np.array([
-            rng.normal(mean_length, std_dev_length, size=Agent.NUM_PARAMS),
-            rng.normal(mean_width, std_dev_width, size=Agent.NUM_PARAMS),
-            (rotations + rng.normal(0, np.pi/6, size=Agent.NUM_PARAMS)) % (2 * np.pi)
-        ]).T
+            params = np.array([
+                np.full(Agent.NUM_PARAMS, default_length),
+                np.full(Agent.NUM_PARAMS, default_width),
+                rotations
+            ]).T
 
-        agent = Agent(i, params, policy_arch, agent_cfg, generation=0)
-        population.append(agent)
-        formatted_params = np.round(params, 2).tolist()
-        evolution_logger.log(f"Agent {i}: Params = {formatted_params}")
+            agent = Agent(i, params, policy_arch, agent_cfg, generation=0)
+            population.append(agent)
+            formatted_params = np.round(params, 2).tolist()
+            evolution_logger.log(f"Agent {i}: Params = {formatted_params}")
+
+    else:
+        for i in range(args_cli.population_size):
+            # Generate random parameters
+            mean_length = (Agent.MIN_SCALE_LENGTH + Agent.MAX_SCALE_LENGTH) / 2
+            std_dev_length = (Agent.MAX_SCALE_LENGTH - Agent.MIN_SCALE_LENGTH) / 6  # 99.7% within 3 std deviations
+            mean_width = (Agent.MIN_SCALE_WIDTH + Agent.MAX_SCALE_WIDTH) / 2
+            std_dev_width = (Agent.MAX_SCALE_WIDTH - Agent.MIN_SCALE_WIDTH) / 6  # 99.7% within 3 std deviations
+
+            rotations = np.linspace(0, 2*np.pi, num=Agent.NUM_PARAMS, endpoint=False)
+
+            params = np.array([
+                rng.normal(mean_length, std_dev_length, size=Agent.NUM_PARAMS),
+                rng.normal(mean_width, std_dev_width, size=Agent.NUM_PARAMS),
+                (rotations + rng.normal(0, np.pi/6, size=Agent.NUM_PARAMS)) % (2 * np.pi)
+            ]).T
+
+            agent = Agent(i, params, policy_arch, agent_cfg, generation=0)
+            population.append(agent)
+            formatted_params = np.round(params, 2).tolist()
+            evolution_logger.log(f"Agent {i}: Params = {formatted_params}")
+
     total_ancestry += population
 
     # Evolution loop
@@ -610,7 +629,8 @@ def main(env_cfg, agent_cfg):
     evolution_logger.log(f"Best overall agent: {best_agent.id}")
     evolution_logger.log(f"Best fitness: {best_fitness:.3f}")
     evolution_logger.log(f"Best params: {best_agent.params}")
-    evolution_logger.log(f"Generation: {best_agent.generation}")
+    best_generation = max(best_agent.fitness_history, key=lambda k: best_agent.fitness_history[k])
+    evolution_logger.log(f"Generation: {best_generation+1}")
     evolution_logger.log(f"Family tree: {best_agent.family_tree}")
         
     # Log lineage information
